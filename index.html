@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100Buttons</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 5px;
+            width: min(90vw, 600px);
+            height: min(90vw, 600px);
+        }
+        .grid-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #888;
+            background-color: #ddd;
+            font-size: calc(10px + 0.5vw);
+            cursor: pointer;
+            transition: background 0.3s;
+            aspect-ratio: 1 / 1;
+        }
+        .grid-button:hover {
+            background-color: #bbb;
+        }
+        #submit-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="grid-container"></div>
+<!-- <p id="click-count-display">総クリック数: 0</p> -->
+<!-- <button id="submit-button">送信</button> -->
+
+<script>
+    const gridSize = 10; // 10×10 グリッド
+    let selectedPosition = [0, 0]; // 直前に押されたボタンの座標
+    let totalClicks = 0; // 総クリック数
+    const scriptURL = "https://script.google.com/macros/s/AKfycbyTU0Zq01dEKxhJ4KBcqp78LF7xnkS_uQQ9-zRAyUrqSX5gAXDjzc10ayTP433Kh-C3/exec"; // ← ここにGASのURLを貼り付ける
+
+    const gridContainer = document.querySelector(".grid-container");
+    const clickCountDisplay = document.getElementById("click-count-display");
+    // const submitButton = document.getElementById("submit-button");
+
+    // 画面サイズとOS情報を取得
+    const windowSize = `${window.innerWidth}x${window.innerHeight}`;
+    const screenSize = `${screen.width}x${screen.height}`;
+    // const accessTime = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
+    // const accessTime = new Date();
+    const now = new Date();
+    const utcTime = now.toISOString().slice(0, 19).replace("T", " "); // YYYY/MM/DD HH:mm:ss形式
+
+    // 現地のオフセットを取得（分単位なので、時間に変換）
+    const offsetMinutes = now.getTimezoneOffset();
+    const offsetHours = offsetMinutes / -60; // 負の値を正にする
+
+    // ${offsetHours >= 0 ? "+" : ""}
+    // if (offsetHours >= 0){
+
+    // }
+
+    // オフセットを適用した現地時刻を計算
+    const localTime = new Date(now.getTime() + (offsetHours >= 0 ? -(offsetMinutes) : offsetMinutes) * 60000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " "); // YYYY/MM/DD HH:mm:ss 形式
+
+    // OSを取得
+    function getOS() {
+        let userAgent = navigator.userAgent;
+        if (userAgent.includes("Windows")) return "Windows";
+        if (userAgent.includes("Mac OS X")) return "Mac";
+        if (userAgent.includes("Android")) return "Android";
+        if (userAgent.includes("iPhone") || userAgent.includes("iPad")) return "iOS";
+        if (userAgent.includes("Linux")) return "Linux";
+        return "Unknown";
+    }
+
+    // ブラウザを取得
+    function getBrowser() {
+        let userAgent = navigator.userAgent;
+        if (userAgent.includes("Chrome") && !userAgent.includes("Edg")) return "Chrome";
+        if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) return "Safari";
+        if (userAgent.includes("Firefox")) return "Firefox";
+        if (userAgent.includes("Edg")) return "Edge";
+        if (userAgent.includes("Opera") || userAgent.includes("OPR")) return "Opera";
+        return "Unknown";
+    }
+
+    const os = getOS();
+    const browser = getBrowser();
+    const referrer = document.referrer || "Direct Access"; // どこから来たか
+
+    let ip, network, version, city, region, region_code, 
+    country, country_name, country_code, country_code_iso3, 
+    country_capital, country_tld, in_en, postal, 
+    latitude, longitude, timezone, utc_offset, country_calling_code, 
+    currency, currency_name, languages, country_area, country_population, 
+    asn, org = "Unknown";
+    
+    // IPアドレスを取得
+    // fetch("https://api64.ipify.org?format=json")
+    //     .then(response => response.json())
+    //     .then(data => ipAddress = data.ip)
+    //     .catch(error => console.error("IP取得エラー:", error));
+    fetch("https://ipapi.co/json/")
+        .then(response => response.json())
+        .then(data => {
+            ip = data.ip;
+            country_name = data.country_name;
+            region = data.region;
+            city = data.city;
+            org = data.org;
+            utc_offset = data.utc_offset;
+            timezone = data.timezone;
+            latitude = data.latitude;
+            longitude = data.longitude;
+            languages = data.languages;
+            
+            // console.log("国名:", data.country_name);
+            // console.log("地域名:", data.region);
+            // console.log("都市名:", data.city);
+        })
+        .catch(error => console.error("取得エラー:", error));
+
+    // ボタン作成
+    for (let i = 1; i <= 100; i++) {
+        const button = document.createElement("button");
+        button.className = "grid-button";
+        // button.textContent = `Btn ${i}`;
+
+        // クリック時の処理
+        button.addEventListener("click", async () => {
+            const row = Math.ceil(i / gridSize); // 行番号
+            const col = (i - 1) % gridSize + 1; // 列番号
+            selectedPosition = [row, col]; // 現在押されたボタンの座標を保存
+            totalClicks++; // 総クリック数を増加
+
+            const data = new URLSearchParams();
+            data.append("access_utcTime", utcTime);
+            data.append("access_localTime", localTime);
+            data.append("utc_offset", utc_offset);
+            data.append("timezone", timezone);
+            data.append("x", selectedPosition[0]);
+            data.append("y", selectedPosition[1]);
+            data.append("totalClicks", totalClicks);
+            data.append("windowSize", windowSize);
+            data.append("screenSize", screenSize);
+            data.append("ipAddress", ip);
+            data.append("country_name", country_name);
+            data.append("region", region);
+            data.append("city", city);
+            data.append("latitude", latitude);
+            data.append("longitude", longitude);
+            data.append("languages", languages);
+            data.append("org", org);
+            data.append("os", os);
+            data.append("browser", browser);
+            data.append("referrer", referrer);
+
+            try {
+            const response = await fetch(scriptURL, {
+                method: "POST",
+                body: data
+            });
+            } catch {
+                console.error("送信エラー", error);
+            }  
+        });
+
+            // console.log(`選択: Btn ${i}, 座標: [${row}, ${col}], 総クリック数: ${totalClicks}`);
+            // clickCountDisplay.textContent = `総クリック数: ${totalClicks}`;
+
+        gridContainer.appendChild(button);
+    }
+
+    // // 送信ボタン処理
+    // submitButton.addEventListener("click", async () => {
+    //     const data = new URLSearchParams();
+    //     data.append("accessTime", accessTime);
+    //     data.append("x", selectedPosition[0]);
+    //     data.append("y", selectedPosition[1]);
+    //     data.append("totalClicks", totalClicks);
+    //     data.append("windowSize", windowSize);
+    //     data.append("screenSize", screenSize);
+    //     data.append("ipAddress", ipAddress);
+    //     data.append("os", os);
+    //     data.append("browser", browser);
+    //     data.append("referrer", referrer);
+
+    //     try {
+    //         const response = await fetch(scriptURL, {
+    //             method: "POST",
+    //             body: data
+    //         });
+    //     } catch {
+    //         console.error("送信エラー", error);
+    //     }
+    // });
+    //         const result = await response.text();
+    //         alert("送信成功: " + result);
+    //     } catch (error) {
+    //         console.error("送信エラー:", error);
+    //         alert("送信失敗");
+    //     }
+    // });
+</script>
+
+</body>
+</html>
